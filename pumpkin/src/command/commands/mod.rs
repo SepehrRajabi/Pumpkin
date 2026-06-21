@@ -27,6 +27,7 @@ mod help;
 mod kick;
 mod kill;
 mod list;
+mod locate;
 mod me;
 mod msg;
 mod op;
@@ -83,6 +84,7 @@ pub async fn default_dispatcher(
     dispatcher.register(teleport::init_command_tree(), "minecraft:command.teleport");
     dispatcher.register(time::init_command_tree(), "minecraft:command.time");
     dispatcher.register(give::init_command_tree(), "minecraft:command.give");
+    dispatcher.register(locate::init_command_tree(), "minecraft:command.locate");
     dispatcher.register(enchant::init_command_tree(), "minecraft:command.enchant");
     dispatcher.register(clear::init_command_tree(), "minecraft:command.clear");
     dispatcher.register(setblock::init_command_tree(), "minecraft:command.setblock");
@@ -151,6 +153,7 @@ pub async fn default_dispatcher(
     kill::register(&mut dispatcher, registry);
     op::register(&mut dispatcher, registry);
     list::register(&mut dispatcher, registry);
+    // locate is registered above as a CommandTree
     seed::register(&mut dispatcher, registry);
     setidletimeout::register(&mut dispatcher, registry);
     stop::register(&mut dispatcher, registry);
@@ -239,6 +242,13 @@ fn register_level_2_permissions(registry: &mut PermissionRegistry) {
         .register_permission(Permission::new(
             "minecraft:command.give",
             "Gives an item to a player",
+            PermissionDefault::Op(PermissionLvl::Two),
+        ))
+        .expect("Permission already registered");
+    registry
+        .register_permission(Permission::new(
+            "minecraft:command.locate",
+            "Locates the nearest structure of a given type",
             PermissionDefault::Op(PermissionLvl::Two),
         ))
         .expect("Permission already registered");
