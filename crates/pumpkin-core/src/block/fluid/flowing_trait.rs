@@ -127,11 +127,10 @@ pub trait FlowingFluid: Send + Sync {
 
     /// Attempts to flow fluid from a position, prioritizing downward flow.
     ///
-    /// Flow priority:
-    /// 1. Down - if space below, create falling fluid (level 8)
-    /// 2. Sides - spread horizontally using pathfinding
-    ///
-    /// Sources with 3+ adjacent sources also spread to sides when flowing down.
+    /// Mirrors `FlowingFluid.spread`: flow down into anything replaceable that isn't
+    /// already this fluid, otherwise spread to the sides unless the block below is a
+    /// hole. Same-type fluid below counts as a hole, so only sources spread sideways
+    /// over it.
     fn try_flow(
         &self,
         world: &Arc<World>,
@@ -142,24 +141,27 @@ pub trait FlowingFluid: Send + Sync {
         let below_pos = block_pos.down();
         let below_state = world.get_block_state(&below_pos);
         let below_block = Block::from_state_id(below_state.id);
-        let is_hole = physics::can_be_replaced(below_state, below_block, fluid);
+        let is_source = props.level == Level::L8 && props.falling == Falling::False;
 
-        // Try to flow down first
-        if is_hole {
-            let falling_props = self.get_flowing(fluid, Level::L8, true);
-            self.spread_to(world, fluid, &below_pos, falling_props.to_state_id(fluid));
-
-            // Check if we should also spread to sides
-            if props.level == Level::L8 && props.falling == Falling::False {
-                let source_count = self.count_source_neighbors(world, fluid, block_pos);
-                if source_count >= 3 {
-                    self.flow_to_sides(world, fluid, block_pos, props);
-                }
+        // A fluid never replaces its own type (`canBeReplacedWith`); the fluid below
+        // updates itself on its own tick instead.
+        if Fluid::from_state_id(below_state.id).is_some_and(|below| fluid.matches_type(below)) {
+            if is_source {
+                self.flow_to_sides(world, fluid, block_pos, props);
             }
             return;
         }
 
-        // Check if fluid should flow to the side(s)
+        if physics::can_be_replaced(below_state, below_block, fluid) {
+            let falling_props = self.get_flowing(fluid, Level::L8, true);
+            self.spread_to(world, fluid, &below_pos, falling_props.to_state_id(fluid));
+
+            if self.count_source_neighbors(world, fluid, block_pos) >= 3 {
+                self.flow_to_sides(world, fluid, block_pos, props);
+            }
+            return;
+        }
+
         self.flow_to_sides(world, fluid, block_pos, props);
     }
 
